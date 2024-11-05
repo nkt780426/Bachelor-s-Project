@@ -1,0 +1,11 @@
+Photometric_DB/
+tmp/
+iac
+.vscode/
+preprocess/detectron2
+1012
+Photometric_DB_split/
+Results/
+Normal_Map/
+Albedo/
+Depth_Map/

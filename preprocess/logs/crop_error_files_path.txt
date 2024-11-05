@@ -1,0 +1,3 @@
+./tmp/Photometric_DB/1001/2009-06-26_11-54-50/albedo.exr
+./tmp/Photometric_DB/1001/2009-06-26_11-54-50/albedo.exr
+./tmp/Photometric_DB/1001/2009-06-26_11-54-50/albedo.exr
