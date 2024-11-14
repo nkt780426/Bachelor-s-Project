@@ -10,3 +10,7 @@ matplotlib
 dlib
 open3d
 OpenEXR
+mtcnn[tensorflow]
+tensorflow==2.16.1
+mplcursors
+albumentations
