@@ -15,20 +15,25 @@
 
 0. Đã hiểu phải làm cái gì, đã tỉnh ngộ. Kiến thức đã có, game là dễ.
 
-1. 14/11 (thứ 5): Tiền xử lý lại tất cả dữ liệu
+1. 14/11 (thứ 5): Tiền xử lý lại tất cả dữ liệu (90%)
     - Chia tập dữ liệu thành 4 tập: 2D, 3D (normal map, depth map, albedo map riêng biệt), check lại toàn bộ 441 người bằng jupyter.
-        Ưu tiên tập 3D trước, 2D ném.
-    - Luân chuyển dữ liệu giữa 2 laptop để thuận lợi cho train mô hình
-    - Hẹn thầy đưa dữ liệu để thầy up lên cloud thuê kaggle hoặc thêu gpu.vn dựa vào lượng dữ liệu train.
+        Ưu tiên tập 3D trước, 2D ném. (đã xong)
+    - Luân chuyển dữ liệu giữa 2 laptop để thuận lợi cho train mô hình (đa xong)
+    - Hẹn thầy đưa dữ liệu để thầy up lên cloud thuê kaggle hoặc thêu gpu.vn dựa vào lượng dữ liệu train.(chưa thực hiện được. Mang dây lan kết nối với máy thầy là 1 giải pháp :v)
+
+    **Kết quả:**
+    - **Chỉnh sửa lại thuật toán crop ảnh không thêm padding nữa. Tất cả ảnh về kích thước (448, 336). Các ảnh được crop sau cho ưu tiên có center trùng với box của mtcnn và có size (448, 336) và scale up dữ nguyên tỷ lệ rồi crop lại nếu thiếu (sử dụng các phương pháp nội suy tích hợp để scale up tránh sai lệch thông tin)**
+    - **Albedo = DepthMap = 1.9 GB, Normal_Map= 5.5 GB**
 
 2. 15/11 (thứ 6): Học về các mạng backbone phổ biến có thể dùng
-    - CNN
-    - Resnet
+    - CNN: (đã xong)
+    - Resnet: 
     - Inception resnet
     - Iresnet: https://arxiv.org/pdf/2004.04989
-    - DenseNet
+    - DenseNet:
     - SENET: dùng thằng này với Restnet mạnh nhất :v
 
+    **Kết quả: Đã tìm hiểu lại về bản chất, ý nghĩa mạng CNN nhưng chưa kịp tìm hiểu các mạng deepth learning. Em mong muốn hiểu bản chất cấu trúc mạng và có thể đánh giá, tự xây code xây dựng mạng backbone trong quá trình train.**
 3. 16/11 (thứ 7): 
     Học về Onix format và pytorch 1 cách toàn diện ?
     Tạo tài khoản kaggle, google colab, thuê GPU và quyết định train ở đâu ?
@@ -54,9 +59,9 @@
     Dựng MLflow để có cái nhìn trực quan về các experement.
 
 Việc công ty.
-- Hoàn thành báo cáo của anh Đăng trước thứ 6. (đã xong)
 - Debezium vekyc vào database AI team
 - Debezium dữ liệu từ mongodb vào kafka, tạo 2 consumer: 
     Consumer 1: Tính toán request thành công hay thất bại dựa vào code và tran id sinh ra, liệt kê số lượng tất cả các mã lỗi => KSQL DB
     Consumer 2: Extract bản ghi mongo db về database AI team.
-- Điều chỉnh airflow task mỗi người lên 1000.
+- Điều chỉnh airflow task mỗi người lên 1000. (đã xong)
+- Hoàn thành báo cáo của anh Đăng trước thứ 6. (đã xong)
