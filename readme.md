@@ -57,11 +57,3 @@
 9. 30/11 (thứ 6): Rà sát đối chiếu toàn bộ kết quả và báo cáo với thầy. Những thứ có thể cải thiện được và phát triển tiếp được trong thời gian còn lại.
     Có thể chụp ảnh cá nhân, dùng deep learning pre-trained sinh ra depth map, normal map, albedo của bản thân đưa vào hệ thống nhận diện.
     Dựng MLflow để có cái nhìn trực quan về các experement.
-
-Việc công ty.
-- Debezium vekyc vào database AI team
-- Debezium dữ liệu từ mongodb vào kafka, tạo 2 consumer: 
-    Consumer 1: Tính toán request thành công hay thất bại dựa vào code và tran id sinh ra, liệt kê số lượng tất cả các mã lỗi => KSQL DB
-    Consumer 2: Extract bản ghi mongo db về database AI team.
-- Điều chỉnh airflow task mỗi người lên 1000. (đã xong)
-- Hoàn thành báo cáo của anh Đăng trước thứ 6. (đã xong)
