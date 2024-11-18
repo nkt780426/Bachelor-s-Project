@@ -10,6 +10,10 @@ preprocess/processed_sessions.txt
 preprocess/im0.bmp
 preprocess/padding.csv
 preprocess/failed_crop.txt
+preprocess/oversample.csv
+preprocess/scale_images.csv
+preprocess/scale_images.csv
+preprocess/test.py
 
 Photometric_DB_split/
 Results/
@@ -20,3 +24,6 @@ Depth_Map/
 3D_Dataset/
 3D_Dataset_Padding/
 test/
+3D_Dataset/
+Dataset/
+Dataset_OU/
