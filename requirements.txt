@@ -14,3 +14,5 @@ mtcnn[tensorflow]
 tensorflow==2.16.1
 mplcursors
 albumentations
+scikit-image
+seaborn

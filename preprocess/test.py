@@ -19,10 +19,9 @@ import albumentations as A
 
 os.environ["OPENCV_IO_ENABLE_OPENEXR"]="1"
 
-albedo_folder = '../Dataset/Albedo'
-depthmap_folder = '../Dataset/Depth_Map'
-normalmap_folder = '../Dataset/Normal_Map'
-num_cpus = 13
+photometric_db = '../Photometric_DB'
+
+num_cpus = 10
 
 def log_to_file(filename, message):
     with open(filename, 'a') as file:
@@ -33,73 +32,200 @@ def log_to_file(filename, message):
         finally:
             # Mở khóa file
             fcntl.flock(file, fcntl.LOCK_UN)
- 
-# Hàm thực hiện under-sampling (giữ lại 40 ảnh ngẫu nhiên)
-def under_sample(id, target_count):
-    all_files = os.listdir(os.path.join(albedo_folder, id))
-    # Chọn ngẫu nhiên 16 ảnh từ danh sách
-    selected_files = random.sample(all_files, target_count)
-    
-    # Xóa các ảnh không được chọn
-    for file in all_files:
-        if file not in selected_files:
-            albedo_path = os.path.join(albedo_folder, id, file)
-            depthmap_path = os.path.join(depthmap_folder, id, file)
-            normalmap_path = os.path.join(normalmap_folder, id, file)
-            os.remove(albedo_path)
-            os.remove(depthmap_path)
-            os.remove(normalmap_path)
             
-    log_to_file('oversample.csv', id)
+def adjust_box(box, shape):
+    x, y, width, height = box
+    center_x = x + width // 2
+    center_y = y + height // 2
 
-# Hàm tăng cường dữ liệu với albumentations
-def augment_image(id, filename_to_duplicate):
-    transform = A.Compose(
-        [
-            A.ShiftScaleRotate(scale_limit=0.1, rotate_limit=20, p=0.8),
-            
-            # ElasticTransform là một phép biến đổi mô phỏng sự biến dạng đàn hồi (elastic deformation). Nó thường được sử dụng để tạo các biến dạng mềm mại, tự nhiên trong ảnh, giống như các vật liệu đàn hồi bị kéo giãn hoặc co lại.
-            # alpha: Độ lớn của biến dạng.
-            # sigma: Độ mượt mà của biến dạng. Giá trị cao làm cho biến dạng ít "sắc nét" hơn.
-            # alpha_affine: Độ biến dạng affine bổ sung để kết hợp với hiệu ứng đàn hồi.
-            # A.ElasticTransform(alpha=1, sigma=50, p=0.8),
-            
-            # A.Affine(scale=(0.9, 1.1), translate_percent=(0.1, 0.1), shear=(-15, 15), p=0.5),
-            A.RandomCrop(height=400, width=300, p=1),
-        ],
-        additional_targets={'image1': 'image', 'image2': 'image'}
-    )
+    # Tăng kích thước của hộp thêm 30%
+    new_width = int(width + 0.25 * width)
+    new_height = int(height + 0.3 * height)
+
+    # Tính lại tọa độ mới sao cho center vẫn không thay đổi
+    new_x = int(center_x - new_width // 2)
+    new_y = int(center_y - new_height // 2)
+
+    # Điều chỉnh nếu new_x hoặc new_y là âm
+    if new_x < 0:
+        new_height = new_height - int(new_height * (abs(new_x)/new_width) * 2)
+        new_y = new_y + int(new_height * (abs(new_x)/new_width))
+        new_width = new_width - abs(new_x)
+        new_x = 0
+    if new_y < 0:
+        new_height = new_height - 2 * abs(new_y)
+        new_y = 0
     
-    # Áp dụng augmentation
-    albedo_image = cv2.imread(os.path.join(albedo_folder, id, filename_to_duplicate), cv2.IMREAD_UNCHANGED)
-    depthmap_image = cv2.imread(os.path.join(depthmap_folder, id, filename_to_duplicate), cv2.IMREAD_UNCHANGED)
-    normalmap_image = cv2.imread(os.path.join(normalmap_folder, id, filename_to_duplicate), cv2.IMREAD_UNCHANGED)
+    image_height, image_width = shape[:2]
     
-    transformed = transform(image=albedo_image, image1=depthmap_image, image2=normalmap_image)
+    while (new_x + new_width > image_width):
+        new_x = new_x + new_width * 0.05
+        new_width = new_width * 0.9
     
-    new_name = str(f"copy_{random.randint(1000, 9999)}_{filename_to_duplicate}")
-    cv2.imwrite(os.path.join(albedo_folder, id, new_name), cv2.resize(transformed['image'], (448,226), interpolation=cv2.INTER_LINEAR))
-    cv2.imwrite(os.path.join(depthmap_folder, id, new_name), cv2.resize(transformed['image1'], (448,226), interpolation=cv2.INTER_AREA))
-    cv2.imwrite(os.path.join(normalmap_folder, id, new_name), cv2.resize(transformed['image2'], (448,226), interpolation=cv2.INTER_NEAREST))
-                
-# Hàm thực hiện over-sampling
-def over_sample(id, number_oversampling):
-    print(id_folder_path)
-    all_files = [f for f in os.listdir(id_folder_path)]
-    for _ in range(0,number_oversampling):
-        filename_to_duplicate = random.choice(all_files)
+    while(new_y + new_height > image_height):
+        new_y = new_y + new_height * 0.05
+        new_height = new_height * 0.9
         
-        augment_image(id, filename_to_duplicate)
-    log_to_file('oversample.csv', id)
+    adjusted_box = [new_x, new_y, new_width, new_height]
+    return adjusted_box
+
+def crop_image(image, box, image_path):
+    x, y, width, height = box
+
+    face_crop = image[y:y + height, x:x + width]
+
+    # Tạo tên file mới với hậu tố '_crop' trong cùng thư mục
+    base, ext = os.path.splitext(image_path)
+    new_image_path = f"{base}_crop{ext}"
+
+    # Lưu ảnh đã cắt
+    if ext.lower() == '.bmp':
+        cv2.imwrite(new_image_path, face_crop)
+    elif ext.lower() == '.exr':
+        cv2.imwrite(new_image_path, face_crop.astype(np.float32))
+
+def detect_face_in_all_bmp(session_path, detector, global_box, global_image_path):
+    if global_box is None:
+        box = None
+        retry_images = []
+        bmp_images = [
+            os.path.join(session_path, 'im0.bmp'),
+            os.path.join(session_path, 'im1.bmp'),
+            os.path.join(session_path, 'im2.bmp'),
+            os.path.join(session_path, 'im3.bmp')
+        ]
+        for image_path in bmp_images:
+            image = cv2.imread(image_path)
+            result = detector.detect_faces(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
+            if len(result) == 1 :
+                if result[0]['confidence'] >= 0.9:
+                    box = adjust_box(result[0]['box'], image.shape)
+                    crop_image(image, box, image_path)
+                else:
+                    retry_images.append(image_path)
+            elif len(result) >=2:
+                max_confidence_index = max(
+                    (i for i, res in enumerate(result) if 'confidence' in res and res['confidence'] >= 0.9),
+                    key=lambda i: result[i]['confidence'],
+                    default=None
+                )
+
+                max_confidence_box = result[max_confidence_index]['box'] if max_confidence_index is not None else None
                 
-# Thực hiện under-sampling và over-sampling cho các thư mục id
-for id in os.listdir(albedo_folder):
-    id_folder_path = os.path.join(albedo_folder, id)
-    if os.path.isdir(id_folder_path):
-        num_files = len(os.listdir(id_folder_path))
-        if num_files < 3:
-            over_sample(id, 2)
-        elif num_files < 10:
-            over_sample(id, 3)
-        elif num_files > 40:
-            under_sample(id, 40)
+                if max_confidence_box:
+                    box = adjust_box(max_confidence_box, image.shape)
+                    crop_image(image, box, image_path)
+                else:
+                    retry_images.append(image_path)
+            else:
+                retry_images.append(image_path)
+        return box, retry_images                
+    else:
+        image = cv2.imread(global_image_path)
+        box = adjust_box(global_box, image.shape)
+        crop_image(image, box, global_image_path)
+    
+def detect_face_in_all_exr(session_path, detector, global_box):
+    normalmap_path = os.path.join(session_path, 'normalmap.exr')
+    albedo_path = os.path.join(session_path, 'albedo.exr')
+    depthmap_path = os.path.join(session_path, 'depthmap.exr')
+    
+    normal_map = cv2.imread(normalmap_path, cv2.IMREAD_UNCHANGED)
+    albedo = cv2.imread(albedo_path, cv2.IMREAD_UNCHANGED)
+    depth_map = cv2.imread(depthmap_path, cv2.IMREAD_UNCHANGED)
+    
+    if global_box is None:
+        box = None
+        retry_images = []
+        result = detector.detect_faces(cv2.cvtColor(albedo, cv2.COLOR_GRAY2RGB))
+        if len(result) == 1:
+            if result[0]['confidence'] >= 0.9:
+                box = adjust_box(result[0]['box'], albedo.shape)
+                crop_image(normal_map, box, normalmap_path)
+                crop_image(albedo, box, albedo_path)
+                crop_image(depth_map, box, depthmap_path)
+            else:
+                retry_images.append(albedo_path)
+        elif len(result) >=2:
+            # Tìm index của phần tử có confidence cao nhất (>= 0.99)
+            max_confidence_index = max(
+                (i for i, res in enumerate(result) if 'confidence' in res and res['confidence'] >= 0.9),
+                key=lambda i: result[i]['confidence'],
+                default=None
+            )
+            max_confidence_box = result[max_confidence_index]['box'] if max_confidence_index is not None else None
+            
+            if max_confidence_box:
+                box = adjust_box(max_confidence_box, albedo.shape)
+                crop_image(normal_map, box, normalmap_path)
+                crop_image(albedo, box, albedo_path)
+                crop_image(depth_map, box, depthmap_path)
+            else:
+                retry_images.append(albedo_path)
+        else:
+            retry_images.append(albedo_path)
+        return box, retry_images
+    else:
+        box = adjust_box(global_box, albedo.shape)
+        crop_image(normal_map, box, normalmap_path)
+        crop_image(albedo, box, albedo_path)
+        crop_image(depth_map, box, depthmap_path)
+        
+def process_session(session_path, cpu_index):
+    try:
+        global_box = None
+        global_retry_images = []
+
+        # Khởi tạo detector cho CPU cụ thể
+        detector = MTCNN(device=f"CPU:{cpu_index}")
+
+        # Gọi hàm detect cho từng định dạng
+        bmp_box, bmp_retry_images = detect_face_in_all_bmp(session_path, detector, None, None)
+        exr_box, exr_retry_images = detect_face_in_all_exr(session_path, detector, None)
+
+        # Xác định global_box và global_retry_images
+        global_box = exr_box if exr_box else bmp_box
+        global_retry_images.extend(bmp_retry_images)
+        global_retry_images.extend(exr_retry_images)
+
+        # Xử lý các ảnh cần retry
+        if global_retry_images:
+            if global_box:
+                for image_path in global_retry_images:
+                    _, ext = os.path.splitext(image_path)
+                    if ext == '.bmp':
+                        detect_face_in_all_bmp(None, None, global_box, image_path)
+                    elif ext == '.exr':
+                        detect_face_in_all_exr(session_path, None, global_box)
+            else:
+                log_to_file('failed_crop.txt', session_path)
+                print(f"Không detect được face trong session {session_path}.")
+    except Exception as e:
+        log_to_file('session_exception.txt', session_path)
+        raise
+    finally:
+        log_to_file('processed_sessions.txt', session_path)  # Ghi lại session đã xử lý
+        
+cpu_index = 0
+count = 1
+
+# Đọc các session đã xử lý từ file checkpoint (nếu có)
+processed_sessions = set()
+if os.path.exists('processed_sessions.txt'):
+    with open('processed_sessions.txt', 'r') as f:
+        processed_sessions = set(f.read().splitlines())
+
+# Thu thập tất cả session_path chưa được xử lý
+session_paths_to_process = []
+for id in os.listdir(photometric_db):
+    id_path = os.path.join(photometric_db, id)
+    if os.path.isdir(id_path):
+        for session in os.listdir(id_path):
+            session_path = os.path.join(id_path, session)
+            # Chỉ thêm các session chưa xử lý vào danh sách
+            if session_path not in processed_sessions:
+                session_paths_to_process.append(session_path)
+               
+
+for session_path in session_paths_to_process:
+    process_session(session_path, 0)

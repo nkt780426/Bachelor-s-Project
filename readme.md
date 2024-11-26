@@ -33,13 +33,11 @@
     - DenseNet:
     - SENET: dùng thằng này với Restnet mạnh nhất :v
 
-    **Kết quả: Đã tìm hiểu lại về bản chất, ý nghĩa mạng CNN nhưng chưa kịp tìm hiểu các mạng deepth learning. Em mong muốn hiểu bản chất cấu trúc mạng và có thể đánh giá, tự xây code xây dựng mạng backbone trong quá trình train.**
+    **Kết quả: Đã tìm hiểu về tất cả các mạng, theo research **
+
 3. 16/11 (thứ 7): 
     Học về Onix format và pytorch 1 cách toàn diện ?
     Tạo tài khoản kaggle, google colab, thuê GPU và quyết định train ở đâu ?
-        Albedo: 2,6 GB (train trên máy với 1000 epoch ?)
-        Depth Map: 2,7 GB 
-        Normal Map: 7,7 GB (thuê)
 
 4. 17/11 (chủ nhật) - 20/11 (thứ 4): Train depthmap sinh ra embeding
     - Tensorflow hay Pytorch ? (Tensorflow thôi)
@@ -57,3 +55,5 @@
 9. 30/11 (thứ 6): Rà sát đối chiếu toàn bộ kết quả và báo cáo với thầy. Những thứ có thể cải thiện được và phát triển tiếp được trong thời gian còn lại.
     Có thể chụp ảnh cá nhân, dùng deep learning pre-trained sinh ra depth map, normal map, albedo của bản thân đưa vào hệ thống nhận diện.
     Dựng MLflow để có cái nhìn trực quan về các experement.
+
+https://arxiv.org/pdf/2206.08016
