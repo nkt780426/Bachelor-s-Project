@@ -58,12 +58,14 @@ Hạn chế này được giải quyết bởi cơ chế attention mechanisms - 
     - Các cải tiến: 
         GSoP Attention: Sử dụng convolution 1×1 và tính toán sự tương quan kênh.
         ECA Attention: Thay fully-connected layers bằng convolution 1D để giảm chi phí tính toán.
+
 1. Temporal Attention
     - Tập trung vào các thời điểm quan trọng trong dữ liệu tuần tự, ví dụ: Video: Chọn các khung hình chứa thông tin quan trọng để nhận dạng hành động.
     - Temporal Adaptive Module (TAM):
         Có hai nhánh: Nhánh cục bộ (local) và nhánh toàn cục (global).
         Nhánh cục bộ: Sử dụng các convolution 1D để tính trọng số cục bộ.
         Nhánh toàn cục: Sử dụng fully-connected layers để tạo trọng số toàn cục.
+        
 2. Self-Attention
     - Được sử dụng trong xử lý ngôn ngữ tự nhiên (NLP), lần đầu tiên được đề xuất trong bài toán dịch máy.
     - Cách hoạt động:

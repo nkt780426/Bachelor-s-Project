@@ -1,5 +1,5 @@
 Photometric_DB/
-tmp/
+**tmp**
 iac
 .vscode/
 preprocess/detectron2
@@ -27,3 +27,5 @@ test/
 3D_Dataset/
 Dataset/
 Dataset_OU/
+**__pycache__**
+*.pdf
