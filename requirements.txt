@@ -13,3 +13,4 @@ mplcursors
 albumentations
 scikit-image
 seaborn
+termcolor

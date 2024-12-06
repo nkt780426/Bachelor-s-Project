@@ -1,6 +1,5 @@
 import torch
 import torch.nn as nn
-import os
 
 __all__ = ['iresnet50', 'iresnet101']
 
@@ -185,7 +184,8 @@ class iResNet(nn.Module):
         if self.dp is not None:
             x = self.dp(x)
 
-        x = self.fc(x)
+        if self.fc is not None:
+            x = self.fc(x)
 
         return x
 
@@ -197,7 +197,13 @@ def iresnet50(pretrained=False, **kwargs):
         pretrained (bool): If True, returns a model pre-trained on ImageNet
     """
     model = iResNet(Bottleneck, [3, 4, 6, 3], **kwargs)
-    model.load_state_dict(torch.load('/home/vohoang/.cache/torch/pretrained/iresnet50.pth', weights_only=True))
+    state_dict = torch.load('/home/vohoang/.cache/torch/pretrained/iresnet50.pth', weights_only=True)
+    
+    # Bỏ phần fully connected layers
+    del state_dict['fc.weight']
+    del state_dict['fc.bias']
+    
+    model.load_state_dict(state_dict)
     return model
 
 

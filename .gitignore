@@ -29,3 +29,5 @@ Dataset/
 Dataset_OU/
 **__pycache__**
 *.pdf
+Dataset_256/
+checkpoint

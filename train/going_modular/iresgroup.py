@@ -1,7 +1,6 @@
 import torch
 import torch.nn as nn
 import os
-from utils.download_from_url import download_from_url
 
 try:
     from torch.hub import _get_torch_home
