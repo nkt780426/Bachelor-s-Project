@@ -1,36 +1,28 @@
 import os
-from scipy.io import loadmat
 import cv2
 import numpy as np
 import matplotlib.pyplot as plt
 from PIL import Image
-import logging
-from scipy.io import loadmat
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from mtcnn import MTCNN
 import fcntl
 import time
 import shutil
 import math
-from collections import Counter
-import mplcursors
 import random
-import albumentations as A
 
 os.environ["OPENCV_IO_ENABLE_OPENEXR"]="1"
 
-photometric_db = '../Photometric_DB'
+photometric_db = './tmp/Photometric_DB'
 
 num_cpus = 10
 
 def log_to_file(filename, message):
     with open(filename, 'a') as file:
-        # Khóa file trước khi ghi
         fcntl.flock(file, fcntl.LOCK_EX)
         try:
             file.write(message + '\n')
         finally:
-            # Mở khóa file
             fcntl.flock(file, fcntl.LOCK_UN)
             
 def adjust_box(box, shape):
@@ -38,36 +30,40 @@ def adjust_box(box, shape):
     center_x = x + width // 2
     center_y = y + height // 2
 
-    # Tăng kích thước của hộp thêm 30%
-    new_width = int(width + 0.25 * width)
-    new_height = int(height + 0.3 * height)
-
-    # Tính lại tọa độ mới sao cho center vẫn không thay đổi
-    new_x = int(center_x - new_width // 2)
-    new_y = int(center_y - new_height // 2)
-
-    # Điều chỉnh nếu new_x hoặc new_y là âm
+    # Tăng kích thước hộp 1.5 lần chiều cao ban đầu
+    im_size = int(height * 2)
+    
+    new_x = center_x - int(im_size//2)
+    new_y = center_y - int(im_size//2)
+    
     if new_x < 0:
-        new_height = new_height - int(new_height * (abs(new_x)/new_width) * 2)
-        new_y = new_y + int(new_height * (abs(new_x)/new_width))
-        new_width = new_width - abs(new_x)
+        im_size = im_size - abs(new_x) * 2
+        new_y = new_y + abs(new_x)
         new_x = 0
+        
     if new_y < 0:
-        new_height = new_height - 2 * abs(new_y)
+        im_size = im_size - abs(new_y) * 2
+        new_x = new_x + abs(new_y)
         new_y = 0
     
     image_height, image_width = shape[:2]
     
-    while (new_x + new_width > image_width):
-        new_x = new_x + new_width * 0.05
-        new_width = new_width * 0.9
-    
-    while(new_y + new_height > image_height):
-        new_y = new_y + new_height * 0.05
-        new_height = new_height * 0.9
-        
-    adjusted_box = [new_x, new_y, new_width, new_height]
+    tmp_width = new_x + im_size - image_width
+    if tmp_width > 0:
+        im_size = im_size - tmp_width * 2
+        new_y += tmp_width
+        new_x += tmp_width
+     
+    tmp_height = new_y + im_size - image_height
+    if tmp_height > 0:
+        im_size = im_size - tmp_height * 2
+        new_x += tmp_height
+        new_y += tmp_height
+
+    adjusted_box = [new_x, new_y, im_size, im_size]
+
     return adjusted_box
+
 
 def crop_image(image, box, image_path):
     x, y, width, height = box
@@ -137,7 +133,7 @@ def detect_face_in_all_exr(session_path, detector, global_box):
     if global_box is None:
         box = None
         retry_images = []
-        result = detector.detect_faces(cv2.cvtColor(albedo, cv2.COLOR_GRAY2RGB))
+        result = detector.detect_faces(cv2.cvtColor(albedo*255, cv2.COLOR_GRAY2RGB))
         if len(result) == 1:
             if result[0]['confidence'] >= 0.9:
                 box = adjust_box(result[0]['box'], albedo.shape)
@@ -205,27 +201,37 @@ def process_session(session_path, cpu_index):
         raise
     finally:
         log_to_file('processed_sessions.txt', session_path)  # Ghi lại session đã xử lý
-        
-cpu_index = 0
-count = 1
 
-# Đọc các session đã xử lý từ file checkpoint (nếu có)
-processed_sessions = set()
-if os.path.exists('processed_sessions.txt'):
-    with open('processed_sessions.txt', 'r') as f:
-        processed_sessions = set(f.read().splitlines())
+if __name__ == '__main__':
+    cpu_index = 0
+    count = 1
 
-# Thu thập tất cả session_path chưa được xử lý
-session_paths_to_process = []
-for id in os.listdir(photometric_db):
-    id_path = os.path.join(photometric_db, id)
-    if os.path.isdir(id_path):
-        for session in os.listdir(id_path):
-            session_path = os.path.join(id_path, session)
-            # Chỉ thêm các session chưa xử lý vào danh sách
-            if session_path not in processed_sessions:
-                session_paths_to_process.append(session_path)
-               
+    # Đọc các session đã xử lý từ file checkpoint (nếu có)
+    processed_sessions = set()
+    if os.path.exists('processed_sessions.txt'):
+        with open('processed_sessions.txt', 'r') as f:
+            processed_sessions = set(f.read().splitlines())
 
-for session_path in session_paths_to_process:
-    process_session(session_path, 0)
+    # Thu thập tất cả session_path chưa được xử lý
+    session_paths_to_process = []
+    for id in os.listdir(photometric_db):
+        id_path = os.path.join(photometric_db, id)
+        if os.path.isdir(id_path):
+            for session in os.listdir(id_path):
+                session_path = os.path.join(id_path, session)
+                # Chỉ thêm các session chưa xử lý vào danh sách
+                if session_path not in processed_sessions:
+                    session_paths_to_process.append(session_path)
+            
+    try:
+        # Xử lý các session_path trong danh sách với ProcessPoolExecutor
+        for session_path in session_paths_to_process:
+            if count % 100 == 0:
+                time.sleep(30)
+            
+            process_session(session_path, cpu_index)
+            cpu_index = cpu_index % num_cpus
+            cpu_index += 1
+            count += 1
+    except Exception as e:
+        raise
