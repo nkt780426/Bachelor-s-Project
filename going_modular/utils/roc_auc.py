@@ -15,7 +15,6 @@ def compute_roc_auc(
     
     model.eval()
     with torch.no_grad():
-        start = time.time()
         embeddings_list = []
         for batch in dataloader:
             images, ids = batch
@@ -23,9 +22,6 @@ def compute_roc_auc(
             embeddings = model.get_embedding(images)
             
             embeddings_list.append((ids, embeddings))
-        
-        print(f'Success gen embedding: {time.time()-start}')
-        start = time.time()
         
         # Concatenate all embeddings into one tensor
         all_ids = torch.cat([x[0] for x in embeddings_list], dim=0)
@@ -36,9 +32,6 @@ def compute_roc_auc(
         cosine_scores = []
         cosine_labels = []
 
-        print(f'Success concat all embedding to 1 tensor: {time.time()-start}')
-        start = time.time()
-        
         # Compute pairwise Euclidean distance and cosine similarity
         all_embeddings_norm = all_embeddings / all_embeddings.norm(p=2, dim=1, keepdim=True)
         euclidean_distances = torch.cdist(all_embeddings, all_embeddings, p=2)  # Euclidean distance matrix
@@ -53,9 +46,6 @@ def compute_roc_auc(
         
         cosine_scores = cosine_similarities[torch.triu(torch.ones_like(labels), diagonal=1) == 1].cpu().numpy()
         cosine_labels = labels[torch.triu(torch.ones_like(labels), diagonal=1) == 1].cpu().numpy()
-        
-        print(f'Success caculate score: {time.time()-start}')
-        start = time.time()
         
         # Compute ROC AUC for Euclidean distance
         euclidean_true_labels = 1 - np.array(euclidean_labels)
@@ -80,7 +70,5 @@ def compute_roc_auc(
         cosine_optimal_threshold = thresholds_cosine[cosine_optimal_idx]
         cosine_pred_labels = (cosine_pred_scores >= cosine_optimal_threshold).astype(int)
         cosine_accuracy = accuracy_score(cosine_true_labels, cosine_pred_labels)
-        
-        print(f'Success caculate metrics: {time.time()-start}')
         
     return euclidean_accuracy, cosine_accuracy, roc_auc_euclidean, roc_auc_cosine
