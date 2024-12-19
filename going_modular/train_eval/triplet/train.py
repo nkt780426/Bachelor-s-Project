@@ -36,13 +36,9 @@ def fit(
         scheduler.step()
 
         # Train stage
-        print('start train')
         train_loss = train_epoch(triplet_train_loader, model, criterion, optimizer, device)
-        print('start test')
-
         test_loss = test_epoch(triplet_test_loader, model, criterion, device)
         
-        print('start acculate metric')
         train_euclidean_accuracy, train_cosine_accuracy, train_euclidean_auc, train_cosine_auc = compute_roc_auc(roc_train_loader, model, device)
         test_euclidean_accuracy, test_cosine_accuracy, test_euclidean_auc, test_cosine_auc = compute_roc_auc(roc_test_loader, model, device)
     
@@ -54,13 +50,13 @@ def fit(
 
         train_metrics = [
             f"loss: {train_loss:.4f}", 
-            f"auc_cos: {train_cosine_auc:.4f}"
+            f"auc_cos: {train_cosine_auc:.4f}",
             f"acc_cos: {train_cosine_accuracy:.4f}",
             f"auc_eu: {train_euclidean_auc:.4f}",
             f"acc_eu: {train_euclidean_accuracy:.4f}",
         ]
         
-        val_metrics = [
+        test_metrics = [
             f"loss: {test_loss:.4f}", 
             f"auc_cos: {test_cosine_auc:.4f}",
             f"acc_cos: {test_cosine_accuracy:.4f}",
@@ -70,7 +66,7 @@ def fit(
         
         process = ProgressMeter(
             train_meters=train_metrics,
-            val_meters=val_metrics,
+            test_meters=test_metrics,
             prefix=f"Epoch {epoch + 1}:"
         )
         
@@ -97,31 +93,24 @@ def train_epoch(
     train_loss = 0
     for i, X in enumerate(triplet_train_loader):
         try:
-            print(f"Processing batch {i+1}/{len(triplet_train_loader)}")
             X = X.to(device)
             optimizer.zero_grad()
 
             anchors, positives, negatives = model(X)
-            print(f"Batch {i+1}: Anchors shape {anchors.shape}")
 
             loss_outputs = criterion(anchors, positives, negatives)
-            print(f"Batch {i+1}: Loss computed")
 
             loss = loss_outputs[0] if type(loss_outputs) in (tuple, list) else loss_outputs
-            print(f"Batch {i+1}: Loss value {loss.item()}")
 
             loss.backward()
-            print(f"Batch {i+1}: Backward pass done")
 
             optimizer.step()
             losses.append(loss.item())
             train_loss += loss.item()
-            print(f"Batch {i+1}: Optimizer step done")
         except Exception as e:
             print(f"Error in batch {i+1}: {e}")
             break
 
-    print('success train')
     train_loss /= len(triplet_train_loader)
 
     return train_loss

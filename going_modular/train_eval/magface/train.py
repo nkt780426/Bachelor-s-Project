@@ -84,22 +84,22 @@ def fit(
             train_loss_id, 
             train_acc_top1,
             train_acc_top5,
-            f"cos_auc: {train_auc_cosine:.3f}",
-            f"cos_acc: {train_cosine_accuracy:.3f}",
-            f"eu_auc: {train_auc_euclidean:.3f}",
-            f"eu_acc: {train_euclidean_accuracy:.3f}",
+            f"cos_auc: {train_auc_cosine:.4f}",
+            f"cos_acc: {train_cosine_accuracy:.4f}",
+            f"eu_auc: {train_auc_euclidean:.4f}",
+            f"eu_acc: {train_euclidean_accuracy:.4f}",
         ]
         
-        val_metrics = [
-            f"cos_auc: {test_auc_cosine:.3f}",
-            f"cos_acc: {test_cosine_accuracy:.3f}",
-            f"eu_auc: {test_auc_euclidean:.3f}",
-            f"eu_acc: {test_euclidean_accuracy:.3f}",
+        test_metrics = [
+            f"cos_auc: {test_auc_cosine:.4f}",
+            f"cos_acc: {test_cosine_accuracy:.4f}",
+            f"eu_auc: {test_auc_euclidean:.4f}",
+            f"eu_acc: {test_euclidean_accuracy:.4f}",
         ]
         
         process = ProgressMeter(
             train_meters=train_metrics,
-            test_metrics=val_metrics,
+            test_meters=test_metrics,
             prefix=f"Epoch {epoch + 1}:"
         )
         
@@ -107,7 +107,7 @@ def fit(
         
         model_checkpoint(model, optimizer, epoch + 1)
         scheduler.step(epoch+1)
-        early_stopping([test_euclidean_accuracy, test_cosine_accuracy, test_auc_euclidean, test_auc_cosine], model, epoch+1)
+        early_stopping([test_auc_cosine, test_cosine_accuracy, test_auc_euclidean, test_euclidean_accuracy], model, epoch+1)
         if early_stopping.early_stop:
             break
         

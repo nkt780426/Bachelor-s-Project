@@ -17,64 +17,6 @@ torch.manual_seed(seed)
 np.random.seed(seed)
 
 
-class RandomResizedCropRect(object):
-    def __init__(self, size, scale=(0.8, 1.0)):
-        self.size = size
-        self.scale = scale
-        self.resize = transforms.Resize((self.size, self.size), interpolation=InterpolationMode.BILINEAR)
-        
-
-    def __call__(self, img):
-        # Lấy kích thước ảnh
-        _, img_height, img_width = img.shape
-
-        # Tính toán kích thước và tọa độ cho crop
-        width = int(img_width * torch.empty(1).uniform_(*self.scale).item())
-        height = int(img_height * torch.empty(1).uniform_(*self.scale).item())
-        x = torch.randint(0, img_width - width + 1, (1,)).item()
-        y = torch.randint(0, img_height - height + 1, (1,)).item()
-
-        # Crop ảnh
-        img = img[:, y:y+height, x:x+width]
-
-        img = self.resize(img)
-
-        return img
-
-class GaussianNoise(object):
-    def __init__(self, mean=0.0, std=0.1):
-        self.mean = mean
-        self.std = std
-
-    def __call__(self, img):
-        # Lấy kích thước của ảnh (C, H, W)
-        channels, height, width = img.shape
-
-        # Tính toán kích thước vùng ảnh sẽ nhận nhiễu
-        min_size = int(height * width * 0.1)
-        max_size = int(height * width * 0.25)
-        area_size = torch.randint(min_size, max_size, (1,)).item()
-
-        # Tạo mask ngẫu nhiên cho vùng ảnh nhận nhiễu
-        mask = torch.zeros((height, width))
-        x = torch.randint(0, width, (1,)).item()
-        y = torch.randint(0, height, (1,)).item()
-        x_end = min(x + int(area_size**0.5), width)
-        y_end = min(y + int(area_size**0.5), height)
-        mask[y:y_end, x:x_end] = 1.0
-
-        # Tạo nhiễu Gaussian
-        std = torch.rand(1).item() * self.std
-        gauss = torch.normal(mean=self.mean, std=std, size=(channels, height, width))
-
-        # Áp dụng nhiễu lên ảnh
-        mask = mask.unsqueeze(0)  # Thêm chiều cho mask để tương thích với (C, H, W)
-        noisy_img = img + gauss * mask
-        noisy_img = torch.clamp(noisy_img, 0, 1)  # Đảm bảo giá trị nằm trong khoảng [0, 1]
-
-        return noisy_img
-
-
 class CustomExrDataset(Dataset):
     
     def __init__(self, dataset_dir:str, transform, type='normalmap'):
@@ -84,21 +26,23 @@ class CustomExrDataset(Dataset):
         self.paths = list(Path(dataset_dir).glob("*/*.exr"))
         self.transform = transform
         self.type = type
+        self.classes = sorted(os.listdir(dataset_dir))
         
     def __len__(self):
         return len(self.paths)
     
     # Nhận vào index mà dataloader muốn lấy
     def __getitem__(self, index:int) -> Tuple[torch.Tensor, int]:
-        tensor_image = self.__load_tensor_image(index)
+        numpy_image = self.__load_numpy_image(index)
         label = self.paths[index].parent.name
+        label_index = self.classes.index(label)
         
         if self.transform:
-            tensor_image = self.transform(tensor_image)
+            numpy_image = self.transform(image = numpy_image)['image']
             
-        return tensor_image, int(label)
+        return torch.from_numpy(numpy_image).permute(2,0,1), label_index
         
-    def __load_tensor_image(self, index:int):
+    def __load_numpy_image(self, index:int):
         image = cv2.imread(self.paths[index], cv2.IMREAD_UNCHANGED)
         
         if image is None:
@@ -108,8 +52,9 @@ class CustomExrDataset(Dataset):
         else:
             image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         
-        return torch.from_numpy(image).permute(2,0,1)
+        return image
 
+    
     
 class TripletDataset(Dataset):
     
@@ -169,17 +114,21 @@ class TripletDataset(Dataset):
         else:
             cvtColor = cv2.COLOR_GRAY2BGR
             
-        img1 = torch.from_numpy(cv2.cvtColor(cv2.imread(img1_path, cv2.IMREAD_UNCHANGED), cvtColor)).permute(2, 0, 1)
-        img2 = torch.from_numpy(cv2.cvtColor(cv2.imread(img2_path, cv2.IMREAD_UNCHANGED), cvtColor)).permute(2, 0, 1)
-        img3 = torch.from_numpy(cv2.cvtColor(cv2.imread(img3_path, cv2.IMREAD_UNCHANGED), cvtColor)).permute(2, 0, 1)
+        img1 = cv2.cvtColor(cv2.imread(img1_path, cv2.IMREAD_UNCHANGED), cvtColor)
+        img2 = cv2.cvtColor(cv2.imread(img2_path, cv2.IMREAD_UNCHANGED), cvtColor)
+        img3 = cv2.cvtColor(cv2.imread(img3_path, cv2.IMREAD_UNCHANGED), cvtColor)
 
         if self.transform is not None:
-            img1 = self.transform(img1)
-            img2 = self.transform(img2)
-            img3 = self.transform(img3)
+            img1 = self.transform(image=img1)['image']
+            img2 = self.transform(image=img2)['image']
+            img3 = self.transform(image=img3)['image']
 
         # Stack các tensor lại thành một tensor duy nhất
-        X = torch.stack((img1, img2, img3), dim=0)
+        X = torch.stack((
+            torch.from_numpy(img1).permute(2,0,1), 
+            torch.from_numpy(img2).permute(2,0,1), 
+            torch.from_numpy(img3).permute(2,0,1)
+        ), dim=0)
         
         # image 1 và 2 cùng class, 3 là negative
         return X

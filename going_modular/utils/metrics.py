@@ -25,9 +25,9 @@ class AverageMeter(object):
 
 # Hiển thị các thông tin trong quá trình training. Kết hợp với tham số AverageMeter ở trên.
 class ProgressMeter(object):
-    def __init__(self, train_meters, test_metrics, prefix=""):
+    def __init__(self, train_meters, test_meters, prefix=""):
         self.train_meters = train_meters
-        self.val_meters = test_metrics
+        self.test_meters = test_meters
         self.prefix = prefix
 
     def display(self):
@@ -36,5 +36,5 @@ class ProgressMeter(object):
         train_metrics = " | ".join(str(meter) for meter in self.train_meters)
         print(f"\ttrain: {train_metrics}")
 
-        val_metrics = " | ".join(str(meter) for meter in self.val_meters)
+        val_metrics = " | ".join(str(meter) for meter in self.test_meters)
         print(f"\ttest: {val_metrics}")
