@@ -22,24 +22,23 @@ class CustomExrDataset(Dataset):
         self.paths = list(Path(dataset_dir).glob("*/*.exr"))
         self.transform = transform
         self.type = type
-        self.classes = sorted(os.listdir(dataset_dir)) # Tên label các ID
-        self.class_index_to_paths = self.__group_paths_by_class() # Nhóm ảnh theo lớp
+        self.classes = sorted(os.listdir(dataset_dir))
         
     def __len__(self):
         return len(self.paths)
     
     # Nhận vào index mà dataloader muốn lấy
     def __getitem__(self, index:int) -> Tuple[torch.Tensor, int]:
-        tensor_image = self.__load_tensor_image(index)
+        numpy_image = self.__load_numpy_image(index)
         label = self.paths[index].parent.name
         label_index = self.classes.index(label)
         
         if self.transform:
-            tensor_image = self.transform(tensor_image)
+            numpy_image = self.transform(image = numpy_image)['image']
             
-        return tensor_image, label_index
+        return torch.from_numpy(numpy_image).permute(2,0,1), label_index
         
-    def __load_tensor_image(self, index:int):
+    def __load_numpy_image(self, index:int):
         image = cv2.imread(self.paths[index], cv2.IMREAD_UNCHANGED)
         
         if image is None:
@@ -49,67 +48,8 @@ class CustomExrDataset(Dataset):
         else:
             image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         
-        return torch.from_numpy(image).permute(2,0,1)
-    
-    def __group_paths_by_class(self):
-        """
-        Nhóm các đường dẫn ảnh theo lớp (ID).
-        """
-        class_index_to_paths = {}
-        for path in self.paths:
-            # Lấy tên lớp từ thư mục cha
-            label_index = self.classes.index(path.parent.name)
+        return image
 
-            # Kiểm tra nếu label_index đã tồn tại trong từ điển
-            if label_index not in class_index_to_paths:
-                class_index_to_paths[label_index] = []  # Khởi tạo danh sách nếu chưa tồn tại
-            
-            class_index_to_paths[label_index].append(path)
-        return class_index_to_paths
-    
-# Custom Sampler
-class BalancedIDSampler(Sampler):
-    def __init__(self, dataset: CustomExrDataset, batch_size: int = 16):
-        self.dataset = dataset
-        self.classes = dataset.classes  # Danh sách các lớp
-        self.class_index_to_paths = dataset.class_index_to_paths
-        self.batch_size = batch_size
-
-    def __iter__(self):
-        """
-        Tạo iterator đảm bảo mỗi batch chứa ảnh từ các ID khác nhau.
-        """
-        # Sao chép danh sách các lớp và xáo trộn thứ tự
-        # class_pool đảm bảo thứ tự lớp trong mỗi epoch là ngẫu nhiên.
-        class_pool = self.classes[:]
-        random.shuffle(class_pool)
-
-        while len(class_pool) >= self.batch_size:
-            # Chọn batch_size lớp đầu tiên ra khỏi class_pool
-            selected_classes = class_pool[:self.batch_size]
-            class_pool = class_pool[self.batch_size:]
-
-            batch = []
-            for cls in selected_classes:
-                # Chọn ngẫu nhiên 1 ảnh từ mỗi lớp
-                class_index = self.classes.index(cls)  # Lấy index của lớp
-                image_path = random.choice(self.class_index_to_paths[class_index])
-                batch.append(int(self.dataset.paths.index(image_path)))  # Lấy index của đường dẫn trong self.paths
-
-            yield batch
-
-        # Batch cuối (nếu còn lớp dư)
-        if class_pool:
-            batch = []
-            for cls in class_pool:
-                class_index = self.classes.index(cls)
-                image_path = random.choice(self.class_index_to_paths[class_index])
-                batch.append(int(self.dataset.paths.index(image_path)))
-            yield batch
-
-    def __len__(self):
-        return (len(self.classes) + self.batch_size - 1) // self.batch_size
-    
     
 class MultiModalExrDataset(Dataset):
     def __init__(self, dataset_dir:str, transform=None, is_train=True):
@@ -183,12 +123,10 @@ def create_magface_dataloader(config, train_transform, test_transform) -> Tuple[
     train_data = CustomExrDataset(config['train_dir'], train_transform, config['type'])
     test_data = CustomExrDataset(config['test_dir'], test_transform, config['type'])
 
-    sampler = BalancedIDSampler(dataset=train_data, batch_size=config['batch_size'])
-    
     train_dataloader = DataLoader(
         train_data,
         batch_size=config['batch_size'],
-        sampler=sampler,
+        shuffle=True,
         num_workers=config['num_workers'],
         pin_memory=True,
     )

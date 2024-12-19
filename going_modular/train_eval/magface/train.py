@@ -68,33 +68,33 @@ def fit(
         
         train_euclidean_accuracy, train_cosine_accuracy, train_auc_euclidean, train_auc_cosine = compute_roc_auc(train_dataloader, model, device)
         
-        val_euclidean_accuracy, val_cosine_accuracy, val_auc_euclidean, val_auc_cosine = compute_roc_auc(val_dataloader, model, device)
+        test_euclidean_accuracy, test_cosine_accuracy, test_auc_euclidean, test_auc_cosine = compute_roc_auc(val_dataloader, model, device)
         
         # Ghi các giá trị vào TensorBoard
         writer.add_scalar("Loss/train", train_loss.avg, epoch + 1)
         writer.add_scalar("Loss/train_id", train_loss_id.avg, epoch + 1)
         writer.add_scalars(main_tag="Train_accuracy_id", tag_scalar_dict = {'top_1': train_acc_top1.avg, 'top_5': train_acc_top5.avg}, global_step=epoch + 1)
-        writer.add_scalars(main_tag="Euclidean_Accuracy", tag_scalar_dict = {'train': train_euclidean_accuracy, 'val': val_euclidean_accuracy}, global_step=epoch + 1)
-        writer.add_scalars(main_tag="Cosine_Accuracy", tag_scalar_dict = {'train': train_cosine_accuracy, 'val': val_cosine_accuracy}, global_step=epoch + 1)
-        writer.add_scalars(main_tag='AUC_euclidean', tag_scalar_dict = {'train': train_auc_euclidean, 'val': val_auc_euclidean}, global_step=epoch + 1)
-        writer.add_scalars(main_tag='AUC_cosine', tag_scalar_dict = {'train': train_auc_cosine, 'val': val_auc_cosine}, global_step=epoch + 1)
+        writer.add_scalars(main_tag='Cosine_AUC', tag_scalar_dict = {'train': train_auc_cosine, 'val': test_auc_cosine}, global_step=epoch + 1)
+        writer.add_scalars(main_tag="Cosine_ACC", tag_scalar_dict = {'train': train_cosine_accuracy, 'val': test_cosine_accuracy}, global_step=epoch + 1)
+        writer.add_scalars(main_tag='Euclidean_AUC', tag_scalar_dict = {'train': train_auc_euclidean, 'val': test_auc_euclidean}, global_step=epoch + 1)
+        writer.add_scalars(main_tag="Euclidean_ACC", tag_scalar_dict = {'train': train_euclidean_accuracy, 'val': test_euclidean_accuracy}, global_step=epoch + 1)
         
         train_metrics = [
             train_loss, 
             train_loss_id, 
             train_acc_top1,
             train_acc_top5,
-            f"acc_eu: {train_euclidean_accuracy:.3f}",
-            f"acc_cos: {train_cosine_accuracy:.3f}",
-            f"auc_eu: {train_auc_euclidean:.3f}",
-            f"auc_cos: {train_auc_cosine:.3f}"
+            f"cos_auc: {train_auc_cosine:.3f}",
+            f"cos_acc: {train_cosine_accuracy:.3f}",
+            f"eu_auc: {train_auc_euclidean:.3f}",
+            f"eu_acc: {train_euclidean_accuracy:.3f}",
         ]
         
         val_metrics = [
-            f"acc_eu: {val_euclidean_accuracy:.3f}",
-            f"acc_cos: {val_cosine_accuracy:.3f}",
-            f"auc_eu: {val_auc_euclidean:.3f}",
-            f"auc_cos: {val_auc_cosine:.3f}"
+            f"cos_auc: {test_auc_cosine:.3f}",
+            f"cos_acc: {test_cosine_accuracy:.3f}",
+            f"eu_auc: {test_auc_euclidean:.3f}",
+            f"eu_acc: {test_euclidean_accuracy:.3f}",
         ]
         
         process = ProgressMeter(
@@ -105,10 +105,10 @@ def fit(
         
         process.display()
         
-        model_checkpoint(model, optimizer, epoch + 1, train_loss)
+        model_checkpoint(model, optimizer, epoch + 1)
         scheduler.step(epoch+1)
-        early_stopping([val_euclidean_accuracy, val_cosine_accuracy, val_auc_euclidean, val_auc_cosine], model, epoch+1)
-        # if early_stopping.early_stop:
-        #     break
+        early_stopping([test_euclidean_accuracy, test_cosine_accuracy, test_auc_euclidean, test_auc_cosine], model, epoch+1)
+        if early_stopping.early_stop:
+            break
         
     writer.close()

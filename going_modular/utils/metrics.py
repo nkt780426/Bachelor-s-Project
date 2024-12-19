@@ -37,4 +37,4 @@ class ProgressMeter(object):
         print(f"\ttrain: {train_metrics}")
 
         val_metrics = " | ".join(str(meter) for meter in self.val_meters)
-        print(f"\tval: {val_metrics}")
+        print(f"\ttest: {val_metrics}")

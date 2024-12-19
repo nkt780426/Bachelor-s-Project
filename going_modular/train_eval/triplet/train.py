@@ -1,4 +1,6 @@
 import torch
+
+import torch
 from torch.nn import Module
 from torch.utils.data import DataLoader
 from torch.optim import Optimizer
@@ -10,110 +12,142 @@ from ...utils.MultiMetricEarlyStopping import MultiMetricEarlyStopping
 from ...utils.ModelCheckPoint import ModelCheckpoint
 import os
 
-
 def fit(
     conf:dict,
-    start_epoch:int,
-    model: Module,
+    start_epoch: int,
+    model: Module, 
     triplet_train_loader: DataLoader, 
     triplet_test_loader: DataLoader, 
-    criterion: Module,
+    criterion: Module, 
     optimizer: Optimizer, 
     scheduler, 
     epochs: int, 
-    device: str, 
+    device:str, 
     roc_train_loader: DataLoader, 
     roc_test_loader: DataLoader,
     early_max_stopping: MultiMetricEarlyStopping,
     early_min_stopping: MultiMetricEarlyStopping,
-    model_checkpoint: ModelCheckpoint
+    model_checkpoint: ModelCheckpoint,
 ):
     log_dir = os.path.abspath('checkpoint/triplet/'+ conf['type'] + '/logs')
-        
     writer = SummaryWriter(log_dir=log_dir)
     
     for epoch in range(start_epoch, epochs):
         scheduler.step()
 
-        # train + eval
+        # Train stage
+        print('start train')
         train_loss = train_epoch(triplet_train_loader, model, criterion, optimizer, device)
-        test_loss= test_epoch(triplet_test_loader, model, criterion, device)
-        train_euclidean_accuracy, train_cosine_accuracy, train_roc_auc_euclidean, train_roc_auc_cosine = compute_roc_auc(roc_train_loader, model, device)
-        test_euclidean_accuracy, test_cosine_accuracy, test_roc_auc_euclidean, test_roc_auc_cosine = compute_roc_auc(roc_test_loader, model, device)
+        print('start test')
 
-        # Log metric
-        writer.add_scalars(main_tag="Loss", tag_scalar_dict = {'train': train_loss, 'test': test_loss}, global_step = epoch+1)
-        writer.add_scalars(main_tag="Cosine_AUC", tag_scalar_dict = {'train': train_roc_auc_cosine, 'test': test_roc_auc_cosine}, global_step=epoch+1)
-        writer.add_scalars(main_tag="Cosine_ACC", tag_scalar_dict = {'train': train_cosine_accuracy, 'test': test_cosine_accuracy}, global_step=epoch+1)
-        writer.add_scalars(main_tag="Euclidean_AUC", tag_scalar_dict = {'train': train_roc_auc_euclidean, 'test': test_roc_auc_euclidean}, global_step=epoch+1)
-        writer.add_scalars(main_tag='Euclidean_ACC', tag_scalar_dict = {'train': train_euclidean_accuracy, 'test': test_euclidean_accuracy}, global_step=epoch+1)
+        test_loss = test_epoch(triplet_test_loader, model, criterion, device)
         
+        print('start acculate metric')
+        train_euclidean_accuracy, train_cosine_accuracy, train_euclidean_auc, train_cosine_auc = compute_roc_auc(roc_train_loader, model, device)
+        test_euclidean_accuracy, test_cosine_accuracy, test_euclidean_auc, test_cosine_auc = compute_roc_auc(roc_test_loader, model, device)
+    
+        writer.add_scalars(main_tag='Loss', tag_scalar_dict={'train': train_loss, 'test': test_loss}, global_step=epoch+1)
+        writer.add_scalars(main_tag='Cosine_auc', tag_scalar_dict={'train': train_cosine_auc, 'test': test_cosine_auc}, global_step=epoch+1)
+        writer.add_scalars(main_tag='Cosine_acc', tag_scalar_dict={'train': train_cosine_accuracy, 'test': test_cosine_accuracy}, global_step=epoch+1)
+        writer.add_scalars(main_tag='Euclidean_auc', tag_scalar_dict={'train': train_euclidean_auc, 'test': test_euclidean_auc}, global_step=epoch+1)
+        writer.add_scalars(main_tag='Euclidean_acc', tag_scalar_dict={'train': train_euclidean_accuracy, 'test': test_euclidean_accuracy}, global_step=epoch+1)
+
         train_metrics = [
-            f"loss: {train_loss:.4f}",
-            f"cos_auc: {train_roc_auc_cosine:.4f}",
-            f"cos_acc: {train_cosine_accuracy:.4f}",
-            f"eu_auc: {train_roc_auc_euclidean:.4f}",
-            f"eu_acc: {train_euclidean_accuracy:.4f}"
+            f"loss: {train_loss:.4f}", 
+            f"auc_cos: {train_cosine_auc:.4f}"
+            f"acc_cos: {train_cosine_accuracy:.4f}",
+            f"auc_eu: {train_euclidean_auc:.4f}",
+            f"acc_eu: {train_euclidean_accuracy:.4f}",
         ]
         
         val_metrics = [
-            f"loss: {test_loss:.4f}",
-            f"cos_auc: {test_roc_auc_cosine:.4f}",
-            f"cos_acc: {test_cosine_accuracy:.4f}",
-            f"eu_auc: {test_roc_auc_euclidean:.4f}",
-            f"eu_acc: {test_euclidean_accuracy:.4f}"
+            f"loss: {test_loss:.4f}", 
+            f"auc_cos: {test_cosine_auc:.4f}",
+            f"acc_cos: {test_cosine_accuracy:.4f}",
+            f"auc_eu: {test_euclidean_auc:.4f}",
+            f"acc_eu: {test_euclidean_accuracy:.4f}",
         ]
         
         process = ProgressMeter(
             train_meters=train_metrics,
-            test_metrics=val_metrics,
+            val_meters=val_metrics,
             prefix=f"Epoch {epoch + 1}:"
         )
         
         process.display()
         
         model_checkpoint(model, optimizer, epoch + 1)
-        early_max_stopping([test_loss], model, epoch+1)
-        early_min_stopping([test_roc_auc_cosine, test_cosine_accuracy, test_roc_auc_euclidean, test_euclidean_accuracy], model, epoch+1)
-        scheduler.step(epoch+1)
+        early_min_stopping([test_loss], model, epoch+1)
+        early_max_stopping([test_cosine_auc, test_cosine_accuracy, test_euclidean_accuracy, test_euclidean_auc], model, epoch+1)
         
-        # if early_min_stopping.early_stop and early_max_stopping.early_stop:
-        #     break
-        
-        
-def train_epoch(triplet_train_loader, model, criterion, optimizer, device):
+        if early_max_stopping.early_stop and early_min_stopping.early_stop:
+            break
+
+
+def train_epoch(
+    triplet_train_loader: DataLoader, 
+    model: Module, 
+    criterion: Module, 
+    optimizer: Optimizer, 
+    device: str
+):
+
     model.train()
-    total_loss = 0
+    losses = []
+    train_loss = 0
+    for i, X in enumerate(triplet_train_loader):
+        try:
+            print(f"Processing batch {i+1}/{len(triplet_train_loader)}")
+            X = X.to(device)
+            optimizer.zero_grad()
 
-    for X in enumerate(triplet_train_loader):
-        X = X.to(device)
+            anchors, positives, negatives = model(X)
+            print(f"Batch {i+1}: Anchors shape {anchors.shape}")
 
-        anchors, positives, negatives = model(X)
+            loss_outputs = criterion(anchors, positives, negatives)
+            print(f"Batch {i+1}: Loss computed")
 
-        loss = criterion(anchors, positives, negatives)
-        
-        total_loss += loss.item()
-        
-        optimizer.zero_grad() 
-        loss.backward()
-        optimizer.step()
+            loss = loss_outputs[0] if type(loss_outputs) in (tuple, list) else loss_outputs
+            print(f"Batch {i+1}: Loss value {loss.item()}")
 
-    total_loss /= len(triplet_train_loader)
-    
-    return total_loss
+            loss.backward()
+            print(f"Batch {i+1}: Backward pass done")
+
+            optimizer.step()
+            losses.append(loss.item())
+            train_loss += loss.item()
+            print(f"Batch {i+1}: Optimizer step done")
+        except Exception as e:
+            print(f"Error in batch {i+1}: {e}")
+            break
+
+    print('success train')
+    train_loss /= len(triplet_train_loader)
+
+    return train_loss
 
 
-def test_epoch(triplet_test_loader, model, criterion, device):
+def test_epoch(
+    triplet_test_loader: DataLoader, 
+    model: Module, 
+    criterion: Module, 
+    device: str
+):
+
     with torch.no_grad():
         model.eval()
         test_loss = 0
+        
         for X in triplet_test_loader:
+            
             X = X.to(device)
-
+            
             anchors, positives, negatives = model(X)
 
-            loss = criterion(anchors, positives, negatives)
-
+            loss_outputs = criterion(anchors, positives, negatives)
+            
+            loss = loss_outputs[0] if type(loss_outputs) in (tuple, list) else loss_outputs
+            
             test_loss += loss.item()
 
         test_loss /= len(triplet_test_loader)
