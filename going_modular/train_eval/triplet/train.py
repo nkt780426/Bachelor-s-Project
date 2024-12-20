@@ -26,7 +26,6 @@ def fit(
     roc_train_loader: DataLoader, 
     roc_test_loader: DataLoader,
     early_max_stopping: MultiMetricEarlyStopping,
-    early_min_stopping: MultiMetricEarlyStopping,
     model_checkpoint: ModelCheckpoint,
 ):
     log_dir = os.path.abspath('checkpoint/triplet/'+ conf['type'] + '/logs')
@@ -39,29 +38,23 @@ def fit(
         train_loss = train_epoch(triplet_train_loader, model, criterion, optimizer, device)
         test_loss = test_epoch(triplet_test_loader, model, criterion, device)
         
-        train_euclidean_accuracy, train_cosine_accuracy, train_euclidean_auc, train_cosine_auc = compute_roc_auc(roc_train_loader, model, device)
-        test_euclidean_accuracy, test_cosine_accuracy, test_euclidean_auc, test_cosine_auc = compute_roc_auc(roc_test_loader, model, device)
+        train_euclidean_auc, train_cosine_auc = compute_roc_auc(roc_train_loader, model, device)
+        test_euclidean_auc, test_cosine_auc = compute_roc_auc(roc_test_loader, model, device)
     
         writer.add_scalars(main_tag='Loss', tag_scalar_dict={'train': train_loss, 'test': test_loss}, global_step=epoch+1)
         writer.add_scalars(main_tag='Cosine_auc', tag_scalar_dict={'train': train_cosine_auc, 'test': test_cosine_auc}, global_step=epoch+1)
-        writer.add_scalars(main_tag='Cosine_acc', tag_scalar_dict={'train': train_cosine_accuracy, 'test': test_cosine_accuracy}, global_step=epoch+1)
         writer.add_scalars(main_tag='Euclidean_auc', tag_scalar_dict={'train': train_euclidean_auc, 'test': test_euclidean_auc}, global_step=epoch+1)
-        writer.add_scalars(main_tag='Euclidean_acc', tag_scalar_dict={'train': train_euclidean_accuracy, 'test': test_euclidean_accuracy}, global_step=epoch+1)
 
         train_metrics = [
             f"loss: {train_loss:.4f}", 
             f"auc_cos: {train_cosine_auc:.4f}",
-            f"acc_cos: {train_cosine_accuracy:.4f}",
             f"auc_eu: {train_euclidean_auc:.4f}",
-            f"acc_eu: {train_euclidean_accuracy:.4f}",
         ]
         
         test_metrics = [
             f"loss: {test_loss:.4f}", 
             f"auc_cos: {test_cosine_auc:.4f}",
-            f"acc_cos: {test_cosine_accuracy:.4f}",
             f"auc_eu: {test_euclidean_auc:.4f}",
-            f"acc_eu: {test_euclidean_accuracy:.4f}",
         ]
         
         process = ProgressMeter(
@@ -73,11 +66,10 @@ def fit(
         process.display()
         
         model_checkpoint(model, optimizer, epoch + 1)
-        early_min_stopping([test_loss], model, epoch+1)
-        early_max_stopping([test_cosine_auc, test_cosine_accuracy, test_euclidean_accuracy, test_euclidean_auc], model, epoch+1)
+        early_max_stopping([test_cosine_auc, test_euclidean_auc], model, epoch+1)
         
-        if early_max_stopping.early_stop and early_min_stopping.early_stop:
-            break
+        # if early_max_stopping.early_stop and early_min_stopping.early_stop:
+        #     break
 
 
 def train_epoch(

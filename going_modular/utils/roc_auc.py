@@ -50,25 +50,25 @@ def compute_roc_auc(
         # Compute ROC AUC for Euclidean distance
         euclidean_true_labels = 1 - np.array(euclidean_labels)
         euclidean_pred_scores = np.array(euclidean_scores)
-        fpr_euclidean, tpr_euclidean, thresholds_euclidean = roc_curve(euclidean_true_labels, euclidean_pred_scores)
+        fpr_euclidean, tpr_euclidean, _ = roc_curve(euclidean_true_labels, euclidean_pred_scores)
         roc_auc_euclidean = auc(fpr_euclidean, tpr_euclidean)
 
         # Compute ROC AUC for Cosine similarity
         cosine_true_labels = np.array(cosine_labels)
         cosine_pred_scores = np.array(cosine_scores)
-        fpr_cosine, tpr_cosine, thresholds_cosine = roc_curve(cosine_true_labels, cosine_pred_scores)
+        fpr_cosine, tpr_cosine, _ = roc_curve(cosine_true_labels, cosine_pred_scores)
         roc_auc_cosine = auc(fpr_cosine, tpr_cosine)
         
-        # Calculate accuracy for Euclidean distance
-        euclidean_optimal_idx = np.argmax(tpr_euclidean - fpr_euclidean) # Chọn ngưỡng tại điểm có giá trị tpr - fpr lớn nhất trên đường ROC, vì đây là nơi tối ưu hóa sự cân bằng giữa tỷ lệ phát hiện (TPR) và tỷ lệ báo động giả (FPR).
-        euclidean_optimal_threshold = thresholds_euclidean[euclidean_optimal_idx]
-        euclidean_pred_labels = (euclidean_pred_scores >= euclidean_optimal_threshold).astype(int)
-        euclidean_accuracy = accuracy_score(euclidean_true_labels, euclidean_pred_labels)
+        # # Calculate accuracy for Euclidean distance
+        # euclidean_optimal_idx = np.argmax(tpr_euclidean - fpr_euclidean) # Chọn ngưỡng tại điểm có giá trị tpr - fpr lớn nhất trên đường ROC, vì đây là nơi tối ưu hóa sự cân bằng giữa tỷ lệ phát hiện (TPR) và tỷ lệ báo động giả (FPR).
+        # euclidean_optimal_threshold = thresholds_euclidean[euclidean_optimal_idx]
+        # euclidean_pred_labels = (euclidean_pred_scores >= euclidean_optimal_threshold).astype(int)
+        # euclidean_accuracy = accuracy_score(euclidean_true_labels, euclidean_pred_labels)
 
-        # Calculate accuracy for Cosine similarity
-        cosine_optimal_idx = np.argmax(tpr_cosine - fpr_cosine)
-        cosine_optimal_threshold = thresholds_cosine[cosine_optimal_idx]
-        cosine_pred_labels = (cosine_pred_scores >= cosine_optimal_threshold).astype(int)
-        cosine_accuracy = accuracy_score(cosine_true_labels, cosine_pred_labels)
+        # # Calculate accuracy for Cosine similarity
+        # cosine_optimal_idx = np.argmax(tpr_cosine - fpr_cosine)
+        # cosine_optimal_threshold = thresholds_cosine[cosine_optimal_idx]
+        # cosine_pred_labels = (cosine_pred_scores >= cosine_optimal_threshold).astype(int)
+        # cosine_accuracy = accuracy_score(cosine_true_labels, cosine_pred_labels)
         
-    return euclidean_accuracy, cosine_accuracy, roc_auc_euclidean, roc_auc_cosine
+    return roc_auc_euclidean, roc_auc_cosine
