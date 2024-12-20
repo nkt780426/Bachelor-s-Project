@@ -3,6 +3,7 @@ import torch.nn.functional as F
 from torch.nn import Parameter
 import math
 from .backbone.iresnet import *
+from .TripletFaceRecognition import EmbeddingNet
 
 # Đặt seed toàn cục
 seed = 42
@@ -85,6 +86,8 @@ class MagFaceRecognition(torch.nn.Module):
             backbone = iresnet101(num_classes=conf['embedding_size'])
         if conf['backbone'] == 'iresnet152':
             backbone = iresnet152(num_classes=conf['embedding_size'])
+        if conf['backbone'] == 'inception-resnet-v1':
+            backbone = EmbeddingNet(len_embedding=conf['embedding_size'])
         self.feature_extractor = backbone
         self.classification = MagLinear(conf['embedding_size'], conf['num_class'])
     

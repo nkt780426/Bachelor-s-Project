@@ -386,7 +386,6 @@ class EmbeddingNet_Concat(nn.Module):
         return x
 
 
-
 class TripletNet_Concat(nn.Module):
     def __init__(self, embedding_net):
         super(TripletNet_Concat, self).__init__()
@@ -431,6 +430,7 @@ class ClassificationNet(nn.Module):
 
     def get_embedding(self, x):
         return self.nonlinear(self.embedding_net(x))
+
 
 class TripletNet(nn.Module):
     def __init__(self, embedding_net):
