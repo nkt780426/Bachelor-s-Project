@@ -83,6 +83,11 @@ class MultiMetricEarlyStopping:
 
                 # Save the best weights
                 if self.save_dir:
+                    # Remove existing checkpoint for the key
+                    existing_files = [f for f in os.listdir(self.save_dir) if f.startswith(f"best_{key}_")]
+                    for file in existing_files:
+                        os.remove(os.path.join(self.save_dir, file))
+                            
                     save_path = os.path.join(self.save_dir, f"best_{key}_{epoch}.pth")
                     torch.save(model.state_dict(), save_path)
                     # self.__update_best_epoch_info(key, epoch)
@@ -101,21 +106,3 @@ class MultiMetricEarlyStopping:
             if self.verbose:
                 cprint(f"\tEarly stopping triggered at epoch {epoch} as all metrics exceeded patience.", 'red')
             self.early_stop = True
-
-    # def __update_best_epoch_info(self, key, epoch):
-    #     # Đọc dữ liệu hiện tại từ file YAML
-    #     try:
-    #         with open(self.best_info_file, 'r') as read_file:
-    #             best_epoch_data = yaml.safe_load(read_file) or {}
-    #     except FileNotFoundError:
-    #         best_epoch_data = {}
-
-    #     # Cập nhật giá trị tốt nhất
-    #     best_epoch_data[key] = {
-    #         'epoch': epoch,
-    #         'value': self.best_values[key]  # Lưu giá trị tốt nhất tại thời điểm đó
-    #     }
-
-    #     # Ghi lại thông tin vào file YAML
-    #     with open(self.best_info_file, 'w') as f:
-    #         yaml.dump(best_epoch_data, f)
